@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數位邏輯進階測驗系統 (原題版)</title>
+    <style>
+        :root { --primary: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background-color: var(--bg); color: #333; line-height: 1.6; padding: 20px; }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+        .score-banner { display: none; text-align: center; background: #e8f4fd; border: 2px solid var(--primary); padding: 15px; border-radius: 10px; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: var(--primary); }
+        .question-block { margin-bottom: 25px; padding: 20px; border: 1px solid #eee; border-radius: 10px; transition: all 0.3s; }
+        .group-block { border: 2px solid var(--primary); background-color: #f0f8ff; padding: 25px; border-radius: 12px; margin-bottom: 40px; }
+        .group-header { font-weight: bold; color: var(--primary); font-size: 1.1em; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        .circuit-diagram { text-align: center; margin: 20px 0; background: white; padding: 15px; border-radius: 8px; border: 1px dashed #ccc; }
+        .question-text { font-weight: 600; font-size: 1.05em; margin-bottom: 12px; }
+        .options { list-style: none; padding: 0; }
+        .option-item { margin-bottom: 10px; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
+        .option-item:hover { background-color: #f9f9f9; }
+        .option-item input { margin-right: 12px; transform: scale(1.2); flex-shrink: 0; }
+        .correct-ans-label { display: none; color: var(--success); font-weight: bold; margin-top: 5px; font-size: 0.9em; }
+        
+        /* 狀態樣式 */
+        .q-success { background-color: #d4edda !important; border-color: #c3e6cb !important; }
+        .q-error { background-color: #f8d7da !important; border-color: #f5c6cb !important; }
+        .option-item.is-correct { border-color: var(--success); background-color: #e9f7ef; border-width: 2px; }
+        .option-item.is-wrong { border-color: var(--danger); background-color: #fdf2f2; }
+
+        .btn-container { text-align: center; margin-top: 40px; position: sticky; bottom: 20px; display: flex; justify-content: center; gap: 15px; z-index: 10; }
+        button { padding: 15px 35px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-submit { background-color: var(--success); color: white; box-shadow: 0 4px 10px rgba(39,174,96,0.3); }
+        .btn-reset { background-color: #34495e; color: white; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; transform: none; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>數位邏輯測驗系統</h1>
+    <div id="score-top" class="score-banner"></div>
+    <div id="quiz-container"></div>
+    <div id="score-bottom" class="score-banner"></div>
+    <div class="btn-container">
+        <button class="btn-reset" onclick="window.location.reload()">重新產生考卷</button>
+        <button id="submit-btn" class="btn-submit" onclick="gradeQuiz()">提交考卷並核對答案</button>
+    </div>
+</div>
+
+<script>
+const quizData = [
+    { type: 'single', q: '在以 Orcad Capture 進行電路圖(Schematic)設計時有右列四個步驟:a. Schematic Plot(電路繪製) b. Create Netlist t(產生網路連結表) c. Design Rule Check(電器特性/設計規則檢查)d. Annotate(元件編號)請問正確的執行順序為右列何者?', options: ['a-d-c-b', 'a-b-c-d', 'a-c-b-d', 'a-d-b-c'], ans: 'a-d-c-b', score: 3 },
+    { type: 'single', q: '在以 Orcad Capture 進行電路圖(Schematic)設計時,不同的電路圖(Schematic)之間若有訊號需要相連接,該使用右列何者元件?', options: ['Input Port (輸入埠)或Output Port (輸出埠)', 'Off-page Connector (離開頁面連接器)', 'Hierarchical Pin (階層式接腳)', '以上皆可'], ans: 'Input Port (輸入埠)或Output Port (輸出埠)', score: 3 },
+    { type: 'single', q: '在以 Orcad Capture 進行電路圖(Schematic)設計時,同一電路圖(Schematic)中,不同頁面(Page)之間若有訊號需要相連接,該使用右列何者元件?', options: ['Input Port(輸入埠)或Output Port (輸出埠)', 'Off-page Connector (離開頁面連接器)', 'Hierarchical Pin (階層式接腳)', '以上皆可'], ans: 'Off-page Connector (離開頁面連接器)', score: 3 },
+    { type: 'single', q: '在以 Orcad Capture 進行電路圖(Schematic)設計時,若採用階層式電路圖設計方式,在階層電路方塊(Hierarchical Block/亦即老師上課所稱紙箱)中,不同方塊(Hierarchical Block/紙箱)之間若有訊號需要相連接,該使用右列何者元件?', options: ['Input Port(輸入埠)或Output Port (輸出埠)', 'Off-page Connector(離開頁面連接器)', 'Hierarchical Pin (階層式接腳)', '以上皆可'], ans: 'Hierarchical Pin (階層式接腳)', score: 3 },
+    { type: 'single', q: '在以 Orcad Capture 進行電路圖(Schematic)設計時,右列敘述何者不正確?', options: ['對於電源腳位,有的晶片使用VCC,有的則使用VDD為其名稱,但因兩者名稱不相同,所以Orcad 並不會將其連接在一起', '對於GND 和DGND,因為都是「地」,所以Orcad會將其視為相同接腳,自動地連接在一起', '以上均不正確'], ans: '對於GND 和DGND,因為都是「地」,所以Orcad會將其視為相同接腳,自動地連接在一起', score: 3 },
+    { type: 'single', q: '以下何者不是常見的晶片接地腳位名稱?', options: ['VSS', 'VEE', 'VGG', 'AGND'], ans: 'VGG', score: 3 },
+    { type: 'single', q: '關於電路設計之電器規則,右列敘述何者不正確?', options: ['「Output」屬性腳位和「Output」屬性腳位相連接會產生 Error', '「Output」屬性腳位和「Bidirectional」屬性腳位相連接會產生Error', '「Output」屬性腳位和「Power」屬性腳位相連接會產生Error', 'Analog Ground 和 Digital Ground 需分開佈線,最後單點接地'], ans: '「Output」屬性腳位和「Bidirectional」屬性腳位相連接會產生Error', score: 3 },
+    { type: 'single', q: '在 Orcad Capture 中,若欲對各類元件自動編號,可以使用Tool選單下的何種功能?', options: ['Bill of Material', 'Net Alias', 'Electrical Rule Check', 'Annotation'], ans: 'Annotation', score: 3 },
+    { type: 'single', q: '在 Orcad Capture 中,若欲讓不同名稱之網路(Net)相互聯結,可以使用右列何種功能?', options: ['Place No Connection', 'Place Net Alias', 'Off-page Connector', 'Annotation'], ans: 'Place Net Alias', score: 3 },
+    { type: 'single', q: '以 Orcad 設計電路圖(Schematic)後可以使用Tools產生BOM表(Bill Of Materials),問 BOM表之內含為何?', options: ['該電路所使用之零件表/料單', '網路連結表', '電器特性檢查結果', 'PCB Footprint 一覽表'], ans: '該電路所使用之零件表/料單', score: 3 },
+    { type: 'single', q: '在以 Orcad 進行電路圖(Schematic)設計後,若欲轉出Altium Designer 所能夠接受之 Netlist 檔案時,應選擇右列何種格式?', options: ['PCAD.DLL', 'SPICE.DLL', 'TANGO.DLL', 'PCBIL.DLL'], ans: 'TANGO.DLL', score: 3 },
+    { type: 'single', q: '在以 Altium Designer 進行PCB (Printed Circuit Board) 設計時有右列七個步驟:a. 鋪銅(Place Polygon Plane) b. 繞線 (Routing) c. 設計規則設定(Design Rules Setup) d. 元件擺置(Placement) e. 匯入網路連結表(Load Nets) f. 繪製板框(Draw Border) g. 補淚滴(Add Teardrops) 請問正確的執行順序為右列何者?', options: ['f-e-d-b-a-g-c', 'f-e-c-d-b-g-a', 'e-f-c-g-b-d-a', 'e-f-b-g-d-a-c'], ans: 'f-e-c-d-b-g-a', score: 3 },
+    { type: 'single', q: '以Altium Designer 設計電路板框時,應選擇右列哪一圖層?', options: ['Mechanical Layer (機構層)', 'TopOverlay(絹印層)', 'MultiLayer', 'Keepout Layer(禁置層)'], ans: 'Keepout Layer(禁置層)', score: 3 },
+    { type: 'single', q: '同上,以Altium Designer 設計電路時,若欲於板面正面新增文字註解或標記元件編號,則應選擇右列哪一圖層?', options: ['Mechanical Layer (機構層)', 'TopOverlay(絹印層)', 'MultiLayer', 'Keepout Layer (禁置層)'], ans: 'TopOverlay(絹印層)', score: 3 },
+    { type: 'single', q: '關於 Altium Designer 的設計,右列敘述何者不正確?', options: ['TOP Layer 通常設計為水平走向', 'Bottom Layer 通常設計為垂直走向', '同一圖層走線之轉角以90度為佳', 'Top Layer 與Bottom Layer 間的連線需要使用貫孔(Via)'], ans: '同一圖層走線之轉角以90度為佳', score: 3 },
+    { type: 'single', q: '關於PCB設計之尺寸單位,右列敘述何者不正確?', options: ['1個mil代表百分之一英吋', '一般麵包板的孔洞距離是100mil', '標準的IC腳間距是100mil', '常見的TTL或CMOS IC,其晶片寬度為300mil(指左右兩側間距,非指單側腳間距)'], ans: '1個mil代表百分之一英吋', score: 3 },
+    { type: 'single', q: '關於PCB Footprint,右列敘述何者不正確?', options: ['電阻的PCB Footprint 通常使用AXIAL0.4或AXIAL0.7,依電阻瓦數大小而定', '在走線時(Routing),地與電源的線寬要比一般訊號線來的更寬(粗)', 'Routing 時,一般訊號線的寬度通常是1mil', '在Routing 完成前,設計區內有許多藍綠色細如髮絲般的連接線(Connection),稱做「半拉線/老鼠線」,其用意係提醒設計者何處該進行連接'], ans: 'Routing 時,一般訊號線的寬度通常是1mil', score: 3 },
+    { type: 'single', q: '在使用 Altium Designer 進行電路板設計時,右列何者不具備電器特性?', options: ['Via(貫孔)', 'Pad(焊點)', 'MultiLayer (多層)', 'TopOverlay(絹印層)'], ans: 'TopOverlay(絹印層)', score: 3 },
+    { type: 'single', q: '關於PCB Layout 最後階段的鋪銅,請問右列敘述何者不正確?', options: ['鋪銅時需將該銅箔接地', '鋪銅之銅箔無須接至任何訊號', '鋪銅時通常傾向將死銅(Dead Copper) 移除', 'Top Layer 與Bottom Layer 都需要鋪銅且需適當地以貫孔進行連接兩側之銅箔'], ans: '鋪銅之銅箔無須接至任何訊號', score: 3 },
+    { type: 'single', q: 'PCB Layout 完成後,需提供給板廠用以製作電路板的檔案名稱統稱為何?', options: ['EXE檔', 'PCB檔', 'SCH 檔', 'Gerber 檔'], ans: 'Gerber 檔', score: 3 },
+    { type: 'single', q: '使用Altium Designer 完成PCB Layout後,我們會產生一個NC Drill 檔,請問NC Drill 檔案的作用為何?', options: ['洗板時板廠所需標記文字油墨的座標', '洗板時板廠數值控制工具機鑽孔所需使用的參考檔', '洗板時板廠所需使用的測試點位', '洗板時板廠所需裁切板框的座標'], ans: '洗板時板廠數值控制工具機鑽孔所需使用的參考檔', score: 3 },
+    { type: 'single', q: '在Altium Designer 中,有一步驟係補淚滴(Teardrops Add),請問補淚滴的功用為何?', options: ['增強貫孔(Via)或焊點(Pad)在CNC鑽孔時的應力耐受能力', '增加導電性', '防制電磁干擾', '增加美觀'], ans: '增強貫孔(Via)或焊點(Pad)在CNC鑽孔時的應力耐受能力', score: 3 },
+    { type: 'single', q: '在Altium Designer 進行互動式繞線時,若欲切換導線(Track)的角度,例如轉90度角,轉45度角,或帶圓弧導角轉折,可以按下哪一按鍵組合?', options: ['Ctrl+空白鍵', 'Alt+空白鍵', 'Shift+空白鍵', 'Ctrl+Shift 鍵'], ans: 'Shift+空白鍵', score: 3 },
+    { type: 'single', q: '在Altium Designer 進行互動式繞線時,若欲切換 Top Layer 與 Bottom Layer 圖層,亦即新增一貫孔(Via),可以按下哪一按鍵?', options: ['Tab鍵', 'Shift鍵', 'Space(空白)鍵', 'Ctrl鍵'], ans: 'Space(空白)鍵', score: 3 },
+    { type: 'single', q: '在Altium Designer 進行元件擺置(Placement)時,若欲旋轉某一元件之 FootPrint,可以對該元件按下滑鼠左鍵不放並同時按下哪一按鍵?', options: ['Tab鍵', 'Shift鍵', 'Space (空白)鍵', 'Ctrl鍵'], ans: 'Space (空白)鍵', score: 3 },
+    { 
+        type: 'group', 
+        context: '第二部份:震盪電路(Oscillation Circuits)以下每題均為5分(請注意)',
+        subQuestions: [
+            { q: '下圖1電路之輸出波形為下列何者?', options: ['弦波', '脈衝波', '方波', '三角波'], ans: '方波', score: 5 },
+            { q: '承上題,若將電阻值R調小,則該電路會產生何種反應?', options: ['輸出電壓振幅變小', '輸出電壓振幅變大', '頻率變小', '頻率變大'], ans: '頻率變大', score: 5 },
+            { q: '承上題,若欲進行大範圍頻率之調整應調整右列何者為宜?', options: ['電阻', '電容', '兩者同時調整'], ans: '電容', score: 5 },
+            { q: '承上題,若欲進行小範圍頻率微調時應調整右列何者為宜?', options: ['電阻', '電容', '兩者同時調整'], ans: '電阻', score: 5 },
+            { q: '承上題,若4584改以不具備 Schmitt Trigger 功能之反閘取代,則電路是否仍會震盪?', options: ['電路不會震盪', '電路仍會震盪', '不一定'], ans: '電路不會震盪', score: 5 }
+        ]
+    }
+];
+
+// SVG 電路圖代碼 (圖1)
+const circuitSVG = `
+<div class="circuit-diagram">
+    <svg width="240" height="140" viewBox="0 0 240 140">
+        <!-- Inverter -->
+        <path d="M 80 40 L 80 100 L 130 70 Z" fill="none" stroke="black" stroke-width="2"/>
+        <circle cx="138" cy="70" r="8" fill="none" stroke="black" stroke-width="2"/>
+        <text x="95" y="115" font-size="12">4584</text>
+        <!-- Schmitt Symbol -->
+        <polyline points="95,75 105,75 105,65 115,65" fill="none" stroke="black" stroke-width="1.5"/>
+        <polyline points="95,75 85,75 85,65 75,65" fill="none" stroke="black" stroke-width="0" opacity="0"/>
+        <path d="M 100 75 L 110 75 L 110 65 L 120 65 M 110 65 L 100 65 L 100 75" fill="none" stroke="black" stroke-width="1"/>
+        
+        <!-- Lines -->
+        <line x1="40" y1="70" x2="80" y2="70" stroke="black" stroke-width="2"/>
+        <line x1="146" y1="70" x2="200" y2="70" stroke="black" stroke-width="2"/>
+        <text x="210" y="75" font-weight="bold">Vo</text>
+        
+        <!-- Capacitor -->
+        <line x1="60" y1="70" x2="60" y2="90" stroke="black" stroke-width="2"/>
+        <line x1="45" y1="90" x2="75" y2="90" stroke="black" stroke-width="2"/>
+        <line x1="45" y1="98" x2="75" y2="98" stroke="black" stroke-width="2"/>
+        <line x1="60" y1="98" x2="60" y2="110" stroke="black" stroke-width="2"/>
+        <polyline points="50,110 70,110 M 55,115 65,115 M 58,120 62,120" fill="none" stroke="black" stroke-width="2"/>
+        <text x="35" y="105" font-weight="bold">C</text>
+        
+        <!-- Feedback Resistor -->
+        <line x1="60" y1="70" x2="60" y2="20" stroke="black" stroke-width="2"/>
+        <line x1="60" y1="20" x2="170" y2="20" stroke="black" stroke-width="2"/>
+        <line x1="170" y1="20" x2="170" y2="70" stroke="black" stroke-width="2"/>
+        <!-- Resistor Symbol -->
+        <rect x="95" y="10" width="50" height="20" fill="white" stroke="black" stroke-width="2"/>
+        <line x1="90" y1="5" x2="150" y2="35" stroke="black" stroke-width="2"/> <!-- Arrow for variable -->
+        <text x="115" y="45" font-weight="bold">R</text>
+        <text x="100" y="-5" font-size="10" opacity="0">圖 1</text>
+    </svg>
+    <div style="font-weight:bold; margin-top:5px;">圖 1</div>
+</div>`;
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function initQuiz() {
+    const container = document.getElementById('quiz-container');
+    container.innerHTML = '';
+    
+    // 1. 打亂大項目
+    let shuffledQuiz = shuffle([...quizData]);
+    let questionNumber = 1;
+
+    shuffledQuiz.forEach(item => {
+        if (item.type === 'single') {
+            renderSingle(container, item, questionNumber++);
+        } else {
+            renderGroup(container, item, questionNumber);
+            questionNumber += item.subQuestions.length;
+        }
+    });
+}
+
+function renderSingle(parent, data, num) {
+    const div = document.createElement('div');
+    div.className = 'question-block';
+    div.dataset.ans = data.ans;
+    div.dataset.score = data.score;
+    
+    let opts = shuffle([...data.options]);
+    let optionsHtml = opts.map(o => `
+        <li class="option-item">
+            <input type="radio" name="q${num}" value="${o}">
+            <span>${o}</span>
+        </li>`).join('');
+
+    div.innerHTML = `
+        <div class="question-text">${num}. ${data.q}</div>
+        <ul class="options">${optionsHtml}</ul>
+        <div class="correct-ans-label">正確答案：${data.ans}</div>
+    `;
+    parent.appendChild(div);
+}
+
+function renderGroup(parent, data, startNum) {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'group-block';
+    groupDiv.innerHTML = `<div class="group-header">${data.context}</div>${circuitSVG}`;
+    
+    data.subQuestions.forEach((sub, i) => {
+        const qNum = startNum + i;
+        const subDiv = document.createElement('div');
+        subDiv.className = 'question-block';
+        subDiv.style.border = 'none';
+        subDiv.style.marginBottom = '15px';
+        subDiv.dataset.ans = sub.ans;
+        subDiv.dataset.score = sub.score;
+
+        let opts = shuffle([...sub.options]);
+        let optionsHtml = opts.map(o => `
+            <li class="option-item">
+                <input type="radio" name="q${qNum}" value="${o}">
+                <span>${o}</span>
+            </li>`).join('');
+
+        subDiv.innerHTML = `
+            <div class="question-text">${qNum}. ${sub.q}</div>
+            <ul class="options">${optionsHtml}</ul>
+            <div class="correct-ans-label">正確答案：${sub.ans}</div>
+        `;
+        groupDiv.appendChild(subDiv);
+    });
+    parent.appendChild(groupDiv);
+}
+
+function gradeQuiz() {
+    const blocks = document.querySelectorAll('.question-block');
+    let totalScore = 0;
+    const submitBtn = document.getElementById('submit-btn');
+    
+    submitBtn.disabled = true;
+    
+    blocks.forEach(block => {
+        const correctAns = block.dataset.ans;
+        const score = parseInt(block.dataset.score);
+        const selectedInput = block.querySelector('input:checked');
+        const allOptions = block.querySelectorAll('.option-item');
+        const correctLabel = block.querySelector('.correct-ans-label');
+
+        // 鎖定所有輸入
+        block.querySelectorAll('input').forEach(i => i.disabled = true);
+        correctLabel.style.display = 'block';
+
+        let isCorrect = false;
+        if (selectedInput) {
+            if (selectedInput.value === correctAns) {
+                isCorrect = true;
+                totalScore += score;
+                block.classList.add('q-success');
+            } else {
+                block.classList.add('q-error');
+                selectedInput.parentElement.classList.add('is-wrong');
+            }
+        } else {
+            block.classList.add('q-error');
+        }
+
+        // 高亮正確選項
+        allOptions.forEach(opt => {
+            if (opt.querySelector('input').value === correctAns) {
+                opt.classList.add('is-correct');
+            }
+        });
+    });
+
+    const banners = [document.getElementById('score-top'), document.getElementById('score-bottom')];
+    banners.forEach(b => {
+        b.innerHTML = `測驗完成！總分：${totalScore} / 100`;
+        b.style.display = 'block';
+    });
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 初始化
+initQuiz();
+</script>
+</body>
+</html>
