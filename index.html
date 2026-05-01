@@ -3,23 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>數位邏輯進階測驗系統 (原題版)</title>
+    <title>數位邏輯進階測驗系統 (手機優化版)</title>
     <style>
         :root { --primary: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background-color: var(--bg); color: #333; line-height: 1.6; padding: 20px; }
-        .container { max-width: 850px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
-        .score-banner { display: none; text-align: center; background: #e8f4fd; border: 2px solid var(--primary); padding: 15px; border-radius: 10px; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: var(--primary); }
-        .question-block { margin-bottom: 25px; padding: 20px; border: 1px solid #eee; border-radius: 10px; transition: all 0.3s; }
-        .group-block { border: 2px solid var(--primary); background-color: #f0f8ff; padding: 25px; border-radius: 12px; margin-bottom: 40px; }
-        .group-header { font-weight: bold; color: var(--primary); font-size: 1.1em; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        .circuit-diagram { text-align: center; margin: 20px 0; background: white; padding: 15px; border-radius: 8px; border: 1px dashed #ccc; }
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background-color: var(--bg); color: #333; line-height: 1.6; padding: 10px; margin: 0; }
+        
+        /* 容器寬度與手機版留白調整 */
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 20px 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 15px; font-size: 1.6em; }
+        
+        .score-banner { display: none; text-align: center; background: #e8f4fd; border: 2px solid var(--primary); padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 22px; font-weight: bold; color: var(--primary); }
+        .question-block { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 10px; transition: all 0.3s; }
+        .group-block { border: 2px solid var(--primary); background-color: #f0f8ff; padding: 15px; border-radius: 12px; margin-bottom: 30px; }
+        .group-header { font-weight: bold; color: var(--primary); font-size: 1.05em; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        
+        /* SVG 電路圖自適應 */
+        .circuit-diagram { text-align: center; margin: 15px 0; background: white; padding: 10px; border-radius: 8px; border: 1px dashed #ccc; overflow-x: auto; }
+        
         .question-text { font-weight: 600; font-size: 1.05em; margin-bottom: 12px; }
-        .options { list-style: none; padding: 0; }
-        .option-item { margin-bottom: 10px; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
+        .options { display: flex; flex-direction: column; gap: 10px; }
+        
+        /* 選項框框（整個可點擊） */
+        .option-item { padding: 15px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; width: 100%; box-sizing: border-box; background-color: white; mragin: 0; }
+        .option-item:active { background-color: #f0f0f0; transform: scale(0.99); }
         .option-item:hover { background-color: #f9f9f9; }
-        .option-item input { margin-right: 12px; transform: scale(1.2); flex-shrink: 0; }
-        .correct-ans-label { display: none; color: var(--success); font-weight: bold; margin-top: 5px; font-size: 0.9em; }
+        .option-item input { margin-right: 12px; transform: scale(1.3); flex-shrink: 0; pointer-events: none; }
+        
+        .correct-ans-label { display: none; color: var(--success); font-weight: bold; margin-top: 8px; font-size: 0.95em; }
         
         /* 狀態樣式 */
         .q-success { background-color: #d4edda !important; border-color: #c3e6cb !important; }
@@ -27,12 +37,20 @@
         .option-item.is-correct { border-color: var(--success); background-color: #e9f7ef; border-width: 2px; }
         .option-item.is-wrong { border-color: var(--danger); background-color: #fdf2f2; }
 
-        .btn-container { text-align: center; margin-top: 40px; position: sticky; bottom: 20px; display: flex; justify-content: center; gap: 15px; z-index: 10; }
-        button { padding: 15px 35px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        /* 底部按鈕區（防擠壓排版） */
+        .btn-container { text-align: center; margin-top: 30px; position: sticky; bottom: 10px; display: flex; justify-content: center; gap: 10px; z-index: 100; padding: 0 10px; }
+        button { padding: 12px 10px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; flex: 1; max-width: 200px; display: flex; align-items: center; justify-content: center; line-height: 1.3; }
         .btn-submit { background-color: var(--success); color: white; box-shadow: 0 4px 10px rgba(39,174,96,0.3); }
-        .btn-reset { background-color: #34495e; color: white; }
-        button:hover { opacity: 0.9; transform: translateY(-2px); }
-        button:disabled { background-color: #bdc3c7; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-reset { background-color: #34495e; color: white; box-shadow: 0 4px 10px rgba(52,73,94,0.3); }
+        button:active { opacity: 0.8; transform: translateY(2px); box-shadow: none; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; transform: none; box-shadow: none; color: #fff; }
+
+        /* 電腦版加大留白 */
+        @media (min-width: 600px) {
+            body { padding: 20px; }
+            .container { padding: 40px; }
+            .option-item { padding: 12px 15px; }
+        }
     </style>
 </head>
 <body>
@@ -43,8 +61,8 @@
     <div id="quiz-container"></div>
     <div id="score-bottom" class="score-banner"></div>
     <div class="btn-container">
-        <button class="btn-reset" onclick="window.location.reload()">重新產生考卷</button>
-        <button id="submit-btn" class="btn-submit" onclick="gradeQuiz()">提交考卷並核對答案</button>
+        <button class="btn-reset" onclick="window.location.reload()">重新<br>洗牌</button>
+        <button id="submit-btn" class="btn-submit" onclick="gradeQuiz()">交卷<br>對答案</button>
     </div>
 </div>
 
@@ -120,9 +138,8 @@ const circuitSVG = `
         <line x1="170" y1="20" x2="170" y2="70" stroke="black" stroke-width="2"/>
         <!-- Resistor Symbol -->
         <rect x="95" y="10" width="50" height="20" fill="white" stroke="black" stroke-width="2"/>
-        <line x1="90" y1="5" x2="150" y2="35" stroke="black" stroke-width="2"/> <!-- Arrow for variable -->
+        <line x1="90" y1="5" x2="150" y2="35" stroke="black" stroke-width="2"/>
         <text x="115" y="45" font-weight="bold">R</text>
-        <text x="100" y="-5" font-size="10" opacity="0">圖 1</text>
     </svg>
     <div style="font-weight:bold; margin-top:5px;">圖 1</div>
 </div>`;
@@ -139,7 +156,6 @@ function initQuiz() {
     const container = document.getElementById('quiz-container');
     container.innerHTML = '';
     
-    // 1. 打亂大項目
     let shuffledQuiz = shuffle([...quizData]);
     let questionNumber = 1;
 
@@ -161,14 +177,14 @@ function renderSingle(parent, data, num) {
     
     let opts = shuffle([...data.options]);
     let optionsHtml = opts.map(o => `
-        <li class="option-item">
+        <label class="option-item">
             <input type="radio" name="q${num}" value="${o}">
             <span>${o}</span>
-        </li>`).join('');
+        </label>`).join('');
 
     div.innerHTML = `
         <div class="question-text">${num}. ${data.q}</div>
-        <ul class="options">${optionsHtml}</ul>
+        <div class="options">${optionsHtml}</div>
         <div class="correct-ans-label">正確答案：${data.ans}</div>
     `;
     parent.appendChild(div);
@@ -185,19 +201,20 @@ function renderGroup(parent, data, startNum) {
         subDiv.className = 'question-block';
         subDiv.style.border = 'none';
         subDiv.style.marginBottom = '15px';
+        subDiv.style.padding = '0';
         subDiv.dataset.ans = sub.ans;
         subDiv.dataset.score = sub.score;
 
         let opts = shuffle([...sub.options]);
         let optionsHtml = opts.map(o => `
-            <li class="option-item">
+            <label class="option-item">
                 <input type="radio" name="q${qNum}" value="${o}">
                 <span>${o}</span>
-            </li>`).join('');
+            </label>`).join('');
 
         subDiv.innerHTML = `
             <div class="question-text">${qNum}. ${sub.q}</div>
-            <ul class="options">${optionsHtml}</ul>
+            <div class="options">${optionsHtml}</div>
             <div class="correct-ans-label">正確答案：${sub.ans}</div>
         `;
         groupDiv.appendChild(subDiv);
@@ -219,14 +236,12 @@ function gradeQuiz() {
         const allOptions = block.querySelectorAll('.option-item');
         const correctLabel = block.querySelector('.correct-ans-label');
 
-        // 鎖定所有輸入
         block.querySelectorAll('input').forEach(i => i.disabled = true);
+        allOptions.forEach(opt => opt.style.pointerEvents = 'none');
         correctLabel.style.display = 'block';
 
-        let isCorrect = false;
         if (selectedInput) {
             if (selectedInput.value === correctAns) {
-                isCorrect = true;
                 totalScore += score;
                 block.classList.add('q-success');
             } else {
@@ -237,7 +252,6 @@ function gradeQuiz() {
             block.classList.add('q-error');
         }
 
-        // 高亮正確選項
         allOptions.forEach(opt => {
             if (opt.querySelector('input').value === correctAns) {
                 opt.classList.add('is-correct');
@@ -254,7 +268,6 @@ function gradeQuiz() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 初始化
 initQuiz();
 </script>
 </body>
